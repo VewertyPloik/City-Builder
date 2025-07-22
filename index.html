@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>City Builder</title>
+<style>
+  body {
+    margin: 0; font-family: Arial, sans-serif; background: #d0e0ff; overflow: hidden;
+  }
+  #homeScreen, #gameScreen, #howToPlay {
+    position: absolute; top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  #gameScreen, #howToPlay {
+    display: none;
+  }
+  #canvas {
+    border: 2px solid black; background: #eef;
+    image-rendering: pixelated;
+  }
+  #toolbar {
+    margin-top: 10px;
+    background: #fff;
+    border-radius: 10px;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    max-width: 820px;
+  }
+  #toolbar button {
+    cursor: pointer;
+    padding: 6px 12px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    background-color: #2e8bc0;
+    color: white;
+    transition: background-color 0.3s;
+  }
+  #toolbar button:hover {
+    background-color: #145da0;
+  }
+  #toolbar button.active {
+    background-color: #0c3d66;
+  }
+  #info {
+    margin-top: 10px;
+    font-weight: bold;
+    font-size: 18px;
+    color: #222;
+  }
+  #popup {
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: white;
+    border-radius: 15px;
+    padding: 25px 30px;
+    box-shadow: 0 0 15px rgba(0,0,0,0.7);
+    z-index: 1001;
+    text-align: center;
+    font-size: 20px;
+    display: none;
+  }
+  #popup button {
+    margin-top: 15px;
+    padding: 8px 20px;
+    font-size: 18px;
+    border-radius: 8px;
+    background-color: #2e8bc0;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  #blur {
+    position: fixed;
+    top:0; left:0; right:0; bottom:0;
+    backdrop-filter: blur(5px);
+    background: rgba(0,0,0,0.2);
+    z-index: 1000;
+    display: none;
+  }
+  #howToPlay p {
+    max-width: 400px;
+    line-height: 1.4;
+    margin: 10px 0;
+    font-size: 18px;
+    color: #222;
+  }
+  #howToPlay button {
+    margin-top: 20px;
+    padding: 8px 20px;
+    font-size: 18px;
+    border-radius: 8px;
+    background-color: #2e8bc0;
+    color: white;
+    border: none;
+    cursor: pointer;
+  }
+  /* Updated home screen styles for bigger, spaced UI */
+  #homeScreen {
+    flex-direction: column;
+    gap: 40px;
+    padding: 50px;
+  }
+  #homeScreen h1 {
+    font-size: 72px;
+    color: #145da0;
+    margin-bottom: 15px;
+  }
+  #homeScreen button {
+    font-size: 28px;
+    padding: 20px 40px;
+    border: none;
+    border-radius: 10px;
+    background-color: #2e8bc0;
+    color: white;
+    cursor: pointer;
+    transition: background-color 0.3s;
+  }
+  #homeScreen button:hover {
+    background-color: #145da0;
+  }
+  #homeScreen button#resetBtn {
+    background-color: #cc4444;
+  }
+  #homeScreen button#resetBtn:hover {
+    background-color: #992222;
+  }
+</style>
+</head>
+<body>
+
+<!-- Home Screen -->
+<div id="homeScreen">
+  <h1>City Builder</h1>
+  <button onclick="startGame()">Play</button>
+  <button onclick="showHowTo()">How to Play</button>
+  <button id="resetBtn" onclick="resetProgress()">Reset Progress</button>
+</div>
+
+<!-- How to Play -->
+<div id="howToPlay">
+  <h2>How to Play</h2>
+  <p>🏠 Build houses and connect them to 🚰 water towers and ⚡ electricity towers.</p>
+  <p>🛣️ Build roads to connect your city (just visual, no logic).</p>
+  <p>🏭 Factories and 🏪 supermarkets generate extra income.</p>
+  <p>🏦 Place a bank (free) to collect income from taxes.</p>
+  <p>💵 You earn money every minute based on population and buildings.</p>
+  <p>🗑️ Delete buildings to get a refund of their cost.</p>
+  <p>🔧 Upgrade utilities to increase their range from 3 to 8 blocks for $200.</p>
+  <button onclick="goHome()">Back</button>
+</div>
+
+<!-- Game Screen -->
+<div id="gameScreen" style="flex-direction: column; align-items: center;">
+  <canvas id="canvas" width="600" height="600"></canvas>
+  <div id="toolbar">
+    <button onclick="selectTool('house')" id="btn-house">🏠 $200</button>
+    <button onclick="selectTool('water')" id="btn-water">🚰 $200</button>
+    <button onclick="selectTool('electric')" id="btn-electric">⚡️ $200</button>
+    <button onclick="selectTool('road')" id="btn-road">🛣️ $20</button>
+    <button onclick="selectTool('supermarket')" id="btn-supermarket">🏪 $300</button>
+    <button onclick="selectTool('factory')" id="btn-factory">🏭 $200</button>
+    <button onclick="selectTool('bank')" id="btn-bank">🏦 FREE</button>
+    <button onclick="selectTool('delete')" id="btn-delete">❌ Delete</button>
+    <button onclick="upgradeUtilities()">⬆️ Upgrade Utilities $200</button>
+    <button onclick="goHome()">🏠 Home</button>
+  </div>
+  <div id="info">💰 Money: $1000 | Population: 0</div>
+</div>
+
+<div id="blur"></div>
+<div id="popup">
+  <div id="popupText"></div>
+  <button onclick="collectOffline()">Collect</button>
+</div>
+
+<script>
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const info = document.getElementById('info');
+  const popup = document.getElementById('popup');
+  const popupText = document.getElementById('popupText');
+  const blur = document.getElementById('blur');
+
+  const gridSize = 20;
+  const tileSize = canvas.width / gridSize;
+
+  let money = 1000;
+  let population = 0;
+  let upgradeRange = 3;
+  let bankPlaced = false;
+
+  let buildings = []; // {x, y, type}
+
+  let currentTool = 'house';
+
+  const prices = {
+    house: 200,
+    water: 200,
+    electric: 200,
+    road: 20,
+    supermarket: 300,
+    factory: 200,
+    bank: 0
+  };
+
+  function drawGrid() {
+    ctx.fillStyle = '#eef';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.strokeStyle = '#ccc';
+    for(let i=0; i<=gridSize; i++) {
+      ctx.beginPath();
+      ctx.moveTo(i*tileSize, 0);
+      ctx.lineTo(i*tileSize, canvas.height);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(0, i*tileSize);
+      ctx.lineTo(canvas.width, i*tileSize);
+      ctx.stroke();
+    }
+  }
+
+  function drawBuildings() {
+    buildings.forEach(b => {
+      switch(b.type) {
+        case 'house': drawTextInTile('🏠', b.x, b.y); break;
+        case 'water': drawTextInTile('🚰', b.x, b.y); break;
+        case 'electric': drawTextInTile('⚡️', b.x, b.y); break;
+        case 'road':
+          ctx.fillStyle = '#555';
+          ctx.fillRect(b.x*tileSize, b.y*tileSize, tileSize, tileSize);
+          break;
+        case 'supermarket': drawTextInTile('🏪', b.x, b.y); break;
+        case 'factory': drawTextInTile('🏭', b.x, b.y); break;
+        case 'bank': drawTextInTile('🏦', b.x, b.y); break;
+      }
+    });
+  }
+
+  function drawTextInTile(text, x, y) {
+    ctx.font = tileSize*0.8 + 'px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x*tileSize + tileSize/2, y*tileSize + tileSize/2 + 3);
+  }
+
+  function render() {
+    drawGrid();
+    drawBuildings();
+  }
+
+  function coordsToGrid(x, y) {
+    return {
+      gx: Math.floor(x / tileSize),
+      gy: Math.floor(y / tileSize)
+    };
+  }
+
+  function isOccupied(x,y) {
+    return buildings.some(b => b.x === x && b.y === y);
+  }
+
+  function findBuilding(x,y) {
+    return buildings.find(b => b.x === x && b.y === y);
+  }
+
+  function placeBuilding(x,y) {
+    if(x<0 || y<0 || x>=gridSize || y>=gridSize) return;
+
+    if(currentTool === 'delete') {
+      let idx = buildings.findIndex(b => b.x === x && b.y === y);
+      if(idx !== -1) {
+        const b = buildings[idx];
+        buildings.splice(idx, 1);
+        money += prices[b.type];
+        if(b.type === 'bank') bankPlaced = false;
+        saveGame();
+        updatePopulation();
+        updateInfo();
+        render();
+      }
+      return;
+    }
+
+    if(isOccupied(x,y)) return;
+
+    const cost = prices[currentTool];
+    if(money < cost) {
+      alert("Not enough money!");
+      return;
+    }
+
+    // Only allow one bank
+    if(currentTool === 'bank' && bankPlaced) {
+      alert("You already have a bank!");
+      return;
+    }
+
+    buildings.push({x, y, type: currentTool});
+    money -= cost;
+    if(currentTool === 'bank') bankPlaced = true;
+    saveGame();
+    updatePopulation();
+    updateInfo();
+    render();
+  }
+
+  function isHouseSupplied(house) {
+    function manhattanDist(x1,y1,x2,y2) {
+      return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+    }
+    const nearWater = buildings.some(b => b.type==='water' && manhattanDist(house.x, house.y, b.x, b.y) <= upgradeRange);
+    const nearElectric = buildings.some(b => b.type==='electric' && manhattanDist(house.x, house.y, b.x, b.y) <= upgradeRange);
+    return nearWater && nearElectric;
+  }
+
+  function updatePopulation() {
+    let count = 0;
+    buildings.forEach(b => {
+      if(b.type==='house' && isHouseSupplied(b)) count++;
+    });
+    population = count * 6;
+  }
+
+  function calculateIncome() {
+    if(!bankPlaced) return 0;
+
+    let baseIncome = 0;
+    if(population <= 10) baseIncome = 10;
+    else if(population <= 50) baseIncome = 25;
+    else if(population <= 99) baseIncome = 50;
+    else baseIncome = 60;
+
+    let factoriesCount = buildings.filter(b=>b.type==='factory').length;
+    let supermarketsCount = buildings.filter(b=>b.type==='supermarket').length;
+
+    return baseIncome + (factoriesCount * 25) + (supermarketsCount * 30);
+  }
+
+  function updateInfo() {
+    info.textContent = `💰 Money: $${money} | Population: ${population}`;
+  }
+
+  canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const {gx, gy} = coordsToGrid(x,y);
+    placeBuilding(gx, gy);
+  });
+
+  function selectTool(tool) {
+    currentTool = tool;
+    document.querySelectorAll('#toolbar button').forEach(btn => btn.classList.remove('active'));
+    let btnId = 'btn-' + tool;
+    if(tool === 'electric') btnId = 'btn-electric';
+    const btn = document.getElementById(btnId);
+    if(btn) btn.classList.add('active');
+  }
+
+  function upgradeUtilities() {
+    if(money < 200) {
+      alert("Not enough money to upgrade utilities!");
+      return;
+    }
+    if(upgradeRange === 8) {
+      alert("Utilities are already upgraded!");
+      return;
+    }
+    money -= 200;
+    upgradeRange = 8;
+    saveGame();
+    updatePopulation();
+    updateInfo();
+    alert("Utilities upgraded! Range increased to 8 blocks.");
+  }
+
+  function saveGame() {
+    const saveData = {
+      money,
+      population,
+      buildings,
+      upgradeRange,
+      bankPlaced,
+      lastOnline: Date.now()
+    };
+    localStorage.setItem('cityBuilderSave', JSON.stringify(saveData));
+  }
+
+  function loadGame() {
+    const data = localStorage.getItem('cityBuilderSave');
+    if(!data) return false;
+    const saveData = JSON.parse(data);
+    money = saveData.money;
+    population = saveData.population;
+    buildings = saveData.buildings || [];
+    upgradeRange = saveData.upgradeRange || 3;
+    bankPlaced = saveData.bankPlaced || false;
+    lastOnlineTime = saveData.lastOnline || Date.now();
+    updatePopulation();
+    updateInfo();
+    render();
+    return true;
+  }
+
+  let lastOnlineTime = Date.now();
+
+  function showOfflineEarnings() {
+    const now = Date.now();
+    let offlineMinutes = Math.floor((now - lastOnlineTime) / 60000);
+    if(offlineMinutes <= 0) return;
+
+    let incomePerMin = calculateIncome();
+    if(incomePerMin === 0) return;
+
+    let offlineEarned = Math.floor(incomePerMin * offlineMinutes * 0.10);
+
+    if(offlineEarned <= 0) return;
+
+    popupText.textContent = `You made $${offlineEarned} while offline!`;
+    popup.style.display = 'block';
+    blur.style.display = 'block';
+
+    popup.dataset.earned = offlineEarned;
+  }
+
+  function collectOffline() {
+    const earned = Number(popup.dataset.earned) || 0;
+    money += earned;
+    popup.style.display = 'none';
+    blur.style.display = 'none';
+    updateInfo();
+    saveGame();
+  }
+
+  let lastIncomeTime = Date.now();
+
+  function gameLoop() {
+    const now = Date.now();
+
+    if(now - lastIncomeTime >= 60000 && bankPlaced) {
+      const income = calculateIncome();
+      money += income;
+      updateInfo();
+      saveGame();
+      lastIncomeTime = now;
+    }
+
+    requestAnimationFrame(gameLoop);
+  }
+
+  function startGame() {
+    document.getElementById('homeScreen').style.display = 'none';
+    document.getElementById('howToPlay').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'flex';
+
+    const loaded = loadGame();
+    if(!loaded) {
+      money = 1000;
+      population = 0;
+      buildings = [];
+      upgradeRange = 3;
+      bankPlaced = false;
+      updateInfo();
+      render();
+      lastOnlineTime = Date.now();
+    }
+
+    showOfflineEarnings();
+    lastIncomeTime = Date.now();
+    saveGame();
+    gameLoop();
+  }
+
+  function showHowTo() {
+    document.getElementById('homeScreen').style.display = 'none';
+    document.getElementById('gameScreen').style.display = 'none';
+    document.getElementById('howToPlay').style.display = 'flex';
+  }
+
+  function goHome() {
+    if(popup.style.display === 'block') return;
+    document.getElementById('homeScreen').style.display = 'flex';
+    document.getElementById('gameScreen').style.display = 'none';
+    document.getElementById('howToPlay').style.display = 'none';
+    saveGame();
+  }
+
+  function resetProgress() {
+    if(confirm("Are you sure you want to reset all progress?")) {
+      localStorage.removeItem('cityBuilderSave');
+      alert("Progress reset! Reloading...");
+      location.reload();
+    }
+  }
+
+  selectTool('house');
+  render();
+</script>
+
+</body>
+</html>
